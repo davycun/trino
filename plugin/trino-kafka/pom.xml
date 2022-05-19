@@ -236,6 +236,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.github.everit-org.json-schema</groupId>
+            <artifactId>org.everit.json.schema</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-avro-serializer</artifactId>
             <scope>test</scope>
@@ -247,7 +253,7 @@
             <!-- This is under Confluence Community License and it should not be used with compile scope -->
             <scope>test</scope>
         </dependency>
-
+        
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-schema-serializer</artifactId>

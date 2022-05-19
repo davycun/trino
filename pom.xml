@@ -1039,6 +1039,23 @@
             </dependency>
 
             <dependency>
+                <groupId>com.github.everit-org.json-schema</groupId>
+                <artifactId>org.everit.json.schema</artifactId>
+                <version>1.12.2</version>
+                <scope>test</scope>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.re2j</groupId>
+                        <artifactId>re2j</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
                 <version>5.8.5</version>
@@ -1267,6 +1284,11 @@
                     <exclusion>
                         <groupId>commons-logging</groupId>
                         <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                    <!-- 1.12.1 not found in https://repository.mulesoft.org/nexus/content/repositories/public/  replace 1.12.2-->
+                    <exclusion>
+                        <groupId>com.github.everit-org.json-schema</groupId>
+                        <artifactId>org.everit.json.schema</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
