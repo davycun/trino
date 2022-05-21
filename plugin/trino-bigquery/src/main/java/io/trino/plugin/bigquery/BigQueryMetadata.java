@@ -76,6 +76,7 @@ import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_DATASE
 import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_DATE;
 import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_TIME;
 import static io.trino.plugin.bigquery.BigQueryTableHandle.BigQueryPartitionType.INGESTION;
+import static io.trino.plugin.bigquery.BigQueryTableHandle.getPartitionType;
 import static io.trino.plugin.bigquery.BigQueryType.toField;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -218,7 +219,11 @@ public class BigQueryMetadata
             return null;
         }
 
-        return new BigQueryTableHandle(schemaTableName, new RemoteTableName(tableInfo.get().getTableId()), tableInfo.get());
+        return new BigQueryTableHandle(new BigQueryNamedRelationHandle(
+                schemaTableName,
+                new RemoteTableName(tableInfo.get().getTableId()),
+                tableInfo.get().getDefinition().getType().toString(),
+                getPartitionType(tableInfo.get().getDefinition())));
     }
 
     private ConnectorTableHandle getTableHandleIgnoringConflicts(ConnectorSession session, SchemaTableName schemaTableName)
@@ -237,7 +242,11 @@ public class BigQueryMetadata
             return null;
         }
 
-        return new BigQueryTableHandle(schemaTableName, new RemoteTableName(tableInfo.get().getTableId()), tableInfo.get());
+        return new BigQueryTableHandle(new BigQueryNamedRelationHandle(
+                schemaTableName,
+                new RemoteTableName(tableInfo.get().getTableId()),
+                tableInfo.get().getDefinition().getType().toString(),
+                getPartitionType(tableInfo.get().getDefinition())));
     }
 
     @Override
@@ -251,11 +260,11 @@ public class BigQueryMetadata
         for (BigQueryColumnHandle column : client.getColumns(handle)) {
             columnMetadata.add(column.getColumnMetadata());
         }
-        if (handle.getPartitionType().isPresent() && handle.getPartitionType().get() == INGESTION) {
+        if (handle.asPlainTable().getPartitionType().isPresent() && handle.asPlainTable().getPartitionType().get() == INGESTION) {
             columnMetadata.add(PARTITION_DATE.getColumnMetadata());
             columnMetadata.add(PARTITION_TIME.getColumnMetadata());
         }
-        return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build());
+        return new ConnectorTableMetadata(handle.asPlainTable().getSchemaTableName(), columnMetadata.build());
     }
 
     @Override
@@ -302,7 +311,7 @@ public class BigQueryMetadata
         BigQueryTableHandle table = (BigQueryTableHandle) tableHandle;
         ImmutableList.Builder<BigQueryColumnHandle> columns = ImmutableList.builder();
         columns.addAll(client.getColumns(table));
-        if (table.getPartitionType().isPresent() && table.getPartitionType().get() == INGESTION) {
+        if (table.asPlainTable().getPartitionType().isPresent() && table.asPlainTable().getPartitionType().get() == INGESTION) {
             columns.add(PARTITION_DATE.getColumnHandle());
             columns.add(PARTITION_TIME.getColumnHandle());
         }
@@ -406,7 +415,7 @@ public class BigQueryMetadata
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
         BigQueryTableHandle bigQueryTable = (BigQueryTableHandle) tableHandle;
-        TableId tableId = bigQueryTable.getRemoteTableName().toTableId();
+        TableId tableId = bigQueryTable.asPlainTable().getRemoteTableName().toTableId();
         client.dropTable(tableId);
     }
 
