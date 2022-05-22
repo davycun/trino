@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>381</version>
+    <version>381.01-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -28,9 +28,9 @@
     </licenses>
 
     <scm>
-        <connection>scm:git:git://github.com/trinodb/trino.git</connection>
-        <url>https://github.com/trinodb/trino</url>
-        <tag>381</tag>
+        <connection>scm:git:git://github.com/davycun/trino.git</connection>
+        <url>https://github.com/davycun/trino</url>
+        <tag>HEAD</tag>
     </scm>
 
     <properties>
@@ -83,6 +83,14 @@
         <air.test.jvmsize>3g</air.test.jvmsize>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
+
+        <!-- replace maven hosted -->
+        <air.repository.snapshot.id>kfwy-snapshots</air.repository.snapshot.id>
+        <air.repository.snapshot.name>kfwy Nexus Snapshots</air.repository.snapshot.name>
+        <air.repository.snapshot.url>https://nexus.kufangwuyou.com/repository/maven-snapshots</air.repository.snapshot.url>
+        <air.repository.release.id>kfwy-releases</air.repository.release.id>
+        <air.repository.release.name>kfwy Release Snapshots</air.repository.release.name>
+        <air.repository.release.url>https://nexus.kufangwuyou.com/repository/maven-releases/</air.repository.release.url>
     </properties>
 
     <modules>
