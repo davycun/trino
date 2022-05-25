@@ -1,0 +1,23 @@
+{
+  "schemaName": "my",
+  "tableName": "simple",
+  "key": {
+    "dataFormat": "raw",
+    "fields":[
+      {
+        "name": "redis_key",
+        "type": "VARCHAR",
+        "hidden": false
+      }
+    ]
+  },
+  "value": {
+    "dataFormat": "raw",
+    "fields":[
+      {
+        "name": "redis_value",
+        "type": "VARCHAR"
+      }
+    ]
+  }
+}
