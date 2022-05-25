@@ -32,6 +32,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcSortItem;
+import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
@@ -137,8 +138,11 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
+import static io.trino.plugin.geospatial.GeoFunctions.stAsBinary;
+import static io.trino.plugin.geospatial.GeoFunctions.stGeomFromBinary;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
@@ -265,6 +269,7 @@ public class PostgreSqlClient
     };
 
     private final Type jsonType;
+    private final Type geometryType;
     private final Type uuidType;
     private final MapType varcharMapType;
     private final List<String> tableTypes;
@@ -283,6 +288,7 @@ public class PostgreSqlClient
             IdentifierMapping identifierMapping)
     {
         super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
+        this.geometryType = typeManager.getType(new TypeSignature(StandardTypes.GEOMETRY));
         this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
@@ -390,6 +396,30 @@ public class PostgreSqlClient
     }
 
     @Override
+    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
+            throws SQLException
+    {
+        Map<String, String> supposedColumnExpressions = new HashMap<>();
+        for (JdbcColumnHandle column : columns) {
+            JdbcTypeHandle jdbcTypeHandle = column.getJdbcTypeHandle();
+            if (jdbcTypeHandle.getJdbcTypeName().isPresent() && jdbcTypeHandle.getJdbcTypeName().get().equals("geometry")) {
+                String columnName = column.getColumnName();
+                log.debug("Find geometry type, changing '%s' to '%s'", columnName, "ST_AsBinary(\"" + columnName + "\")");
+                supposedColumnExpressions.put(columnName, "ST_AsBinary(\"" + columnName + "\")");
+            }
+        }
+
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        for (Map.Entry<String, String> entry : supposedColumnExpressions.entrySet()) {
+            builder.put(entry.getKey(), entry.getValue());
+        }
+        Map<String, String> columnExpressions = builder.buildOrThrow();
+
+        PreparedQuery preparedQuery = prepareQuery(session, connection, table, Optional.empty(), columns, columnExpressions, Optional.of(split));
+        return queryBuilder.prepareStatement(this, session, connection, preparedQuery);
+    }
+
+    @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         if (tableHandle.getColumns().isPresent()) {
@@ -490,6 +520,8 @@ public class PostgreSqlClient
             return mapping;
         }
         switch (jdbcTypeName) {
+            case "geometry":
+                return Optional.of(geometryColumnMapping());
             case "money":
                 return Optional.of(moneyColumnMapping());
             case "uuid":
@@ -1099,6 +1131,36 @@ public class PostgreSqlClient
             }
             shortTimestampWriteFunction(statement, index, epochMicros);
         }));
+    }
+
+    public static SliceWriteFunction geometryWriteFunction()
+    {
+        String bindExpression = format("ST_GeomFromWKB(?)");
+        return new SliceWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                return bindExpression;
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Slice slice)
+                    throws SQLException
+            {
+                byte[] bytes = stAsBinary(slice).getBytes();
+                statement.setBytes(index, bytes);
+            }
+        };
+    }
+
+    private ColumnMapping geometryColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                geometryType,
+                (resultSet, columnIndex) -> stGeomFromBinary(wrappedBuffer(resultSet.getBytes(columnIndex))),
+                geometryWriteFunction(),
+                DISABLE_PUSHDOWN);
     }
 
     @Override
